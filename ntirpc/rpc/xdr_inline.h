@@ -583,7 +583,7 @@ inline_xdr_bytes(XDR *xdrs, char **cpp, u_int *sizep,
 {
 	char *sp = *cpp;	/* sp is the actual string pointer */
 	u_int nodesize;
-	bool ret;
+	bool ret, allocated = false;
 
 	/*
 	 * first deal with the length since xdr bytes are counted
@@ -602,12 +602,16 @@ inline_xdr_bytes(XDR *xdrs, char **cpp, u_int *sizep,
 	case XDR_DECODE:
 		if (nodesize == 0)
 			return (true);
-		if (sp == NULL)
+		if (sp == NULL) {
 			*cpp = sp = (char *)mem_alloc(nodesize);
+                        allocated = true;
+                }
 		ret = inline_xdr_getopaque(xdrs, sp, nodesize);
 		if (! ret) {
-			free(sp);
-			*cpp = NULL;
+                        if (allocated) {
+        			free(sp);
+	        		*cpp = NULL;
+                        }
 		}
 		return (ret);
 
