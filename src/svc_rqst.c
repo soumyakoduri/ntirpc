@@ -754,6 +754,7 @@ svc_rqst_xprt_task(struct work_pool_entry *wpe)
 {
 	struct rpc_dplx_rec *rec =
 			opr_containerof(wpe, struct rpc_dplx_rec, ioq.ioq_wpe);
+        enum xprt_stat rc = XPRT_IDLE;
 
 	atomic_clear_uint16_t_bits(&rec->ioq.ioq_s.qflags, IOQ_FLAG_WORKING);
 
@@ -764,11 +765,16 @@ svc_rqst_xprt_task(struct work_pool_entry *wpe)
 		 * xp_refcnt need more than 1 (this task).
 		 */
 		(void)clock_gettime(CLOCK_MONOTONIC_FAST, &(rec->recv.ts));
-		(void)SVC_RECV(&rec->xprt);
+		rc = SVC_RECV(&rec->xprt);
 	}
 
 	/* If tests fail, log non-fatal "WARNING! already destroying!" */
-	SVC_RELEASE(&rec->xprt, SVC_RELEASE_FLAG_NONE);
+        if (rc != XPRT_DESTROYED) {
+                /* In case of any failures in SVC_RECV(), we release the ref
+                 * taken by svc_rqst* and mark it as XPRT_DESTROYED. Hence
+                 * no need to release it again */
+	        SVC_RELEASE(&rec->xprt, SVC_RELEASE_FLAG_NONE);
+        }
 }
 
 /*
